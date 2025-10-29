@@ -1,0 +1,106 @@
+/setmonth 1 2025
+/receipt 3500 TechStartup "Website development - January"
+/expense 150 OfficeMax "Office supplies"
+/expense 177 Restaurant "Team lunch" vat
+/monthly
+/recommend
+/deposit pension=400 study=150
+/summary
+/nextmonth
+
+/invoice 4200 DesignCo "UI/UX Design - February"
+/expense 200 Software "Adobe license"
+/expense 94 GasStation "Fuel" vat
+/monthly
+/deposit pension=500 study=150
+/projection
+/nextmonth
+
+/invoice 8000 BigCorp "Full stack development - March"
+/expense 350 CoworkingSpace "Office rent"
+/expense 117 Hardware "USB drives" vat
+/expense 234 Internet "Fiber connection" vat
+/monthly
+/deposit pension=1000 study=200
+/summary
+/nextmonth
+
+/receipt 5500 ClientA "Consulting - April"
+/invoice 3000 ClientB "API Integration"
+/expense 400 Conference "Tech conference ticket"
+/expense 176 Hotel "Conference hotel" vat
+/monthly
+/projection
+/recommend
+/deposit pension=800 study=200
+/summary
+/nextmonth
+
+/receipt 6000 TechCorp "Backend development - May"
+/expense 300 Accountant "Tax consultation"
+/expense 141 Phone "Monthly plan" vat
+/setni 2000
+/monthly
+/summary
+/deposit pension=900 study=300
+/nextmonth
+
+/receipt 5200 StartupXYZ "Mobile app - June"
+/expense 250 Training "Online course"
+/expense 82 Subscription "SaaS tools" vat
+/summary
+/projection
+/monthly
+/deposit pension=850 study=300
+/nextmonth
+
+/receipt 7500 Agency "Full project - July"
+/expense 500 Equipment "New monitor"
+/expense 234 Electricity "Office utilities" vat
+/deposit pension=1100 study=400
+/monthly
+/nextmonth
+
+/receipt 2500 SmallClient "Maintenance - August"
+/expense 100 Cloud "Hosting fees"
+/monthly
+/recommend
+/deposit pension=400 study=150
+/summary
+/nextmonth
+
+/receipt 6800 EnterpriseClient "Enterprise integration - September"
+/expense 350 Marketing "Google Ads"
+/expense 188 Lunch "Client meetings" vat
+/deposit pension=1000 study=350
+/projection
+/nextmonth
+
+/receipt 7200 FinTech "Payment system - October"
+/invoice 4000 EcommerceCo "Shopping cart integration"
+/expense 400 Software "Annual licenses"
+/expense 211 Transport "Client visits" vat
+/monthly
+/summary
+/deposit pension=1300 study=400
+/nextmonth
+
+/receipt 6500 ClientZ "Migration project - November"
+/expense 300 Insurance "Professional insurance"
+/expense 164 Gifts "Client gifts" vat
+/optimizer
+/summary
+/projection
+/deposit pension=1100 study=400
+/nextmonth
+
+/receipt 5800 YearEndClient "Final project - December"
+/expense 250 Gifts "Employee bonuses"
+/expense 117 Party "Year-end celebration" vat
+/optimizer
+/summary
+/deposit pension=1200 study=1660
+/setni 3500
+/summary
+/excel
+/last 20

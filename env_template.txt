@@ -1,0 +1,123 @@
+# TelegramAccountant Bot Configuration
+# Copy this file to .env and fill in your actual values
+
+# =============================================================================
+# TELEGRAM BOT CONFIGURATION
+# =============================================================================
+
+# Your Telegram Bot Token (get from @BotFather)
+TELEGRAM_BOT_TOKEN=
+
+# =============================================================================
+# GOOGLE DRIVE CONFIGURATION
+# =============================================================================
+
+# Google Drive Root Folder ID (optional - can be set via /setdrive command)
+# Get this from your Drive folder URL: https://drive.google.com/drive/folders/FOLDER_ID_HERE
+GOOGLE_DRIVE_ROOT_FOLDER_ID=
+
+# Google Service Account Email (if using service account)
+# This is the email address of your service account
+GOOGLE_SERVICE_ACCOUNT_EMAIL=
+
+# =============================================================================
+# BUSINESS CONFIGURATION
+# =============================================================================
+
+# Your Business Name (Hebrew)
+BUSINESS_NAME=בן אכואן
+
+# Your Business Name (English) - optional
+BUSINESS_NAME_EN=Ben Akhovan
+
+# Your Business ID (ח.פ.)
+BUSINESS_ID=213531254
+
+# Your Business Address
+BUSINESS_ADDRESS=כפר יחזקאל
+
+# Your Contact Information
+BUSINESS_CONTACT=ben32561@gmail.com | 053-5292405
+
+# =============================================================================
+# TAX CONFIGURATION
+# =============================================================================
+
+# VAT Rate (0.0 for exempt, 0.18 for 18% VAT)
+VAT_RATE=0.0
+
+# Pension Fund Rate (16.5% = 0.165)
+PENSION_RATE=0.165
+
+# Study Fund Deductible Rate (4.5% = 0.045)
+STUDY_RATE_DEDUCTIBLE=0.045
+
+# Study Fund Total Cap (₪20,520)
+STUDY_CAP_TOTAL=20520
+
+# Tax Credit Points (2.25 for most people)
+TAX_CREDIT_POINTS=2.25
+
+# Tax Credit Point Value (₪2,800 per point)
+TAX_CREDIT_POINT_VALUE=2800
+
+# =============================================================================
+# NATIONAL INSURANCE CONFIGURATION
+# =============================================================================
+
+# Monthly NI Threshold (₪7,522 for 2025)
+NI_MONTHLY_THRESHOLD=7522
+
+# NI Low Rate (0.4% = 0.004)
+NI_LOW_RATE=0.004
+
+# NI High Rate (7% = 0.07)
+NI_HIGH_RATE=0.07
+
+# Manual NI Payment Amount (set via /setni command)
+NI_PAID_MANUALLY=0
+
+# =============================================================================
+# INVOICE NUMBERING CONFIGURATION
+# =============================================================================
+
+# Current Year for Invoice Numbering
+INVOICE_YEAR=2025
+
+# Next Receipt Number (K-2025-XXXX)
+NEXT_RECEIPT_NUMBER=1
+
+# Next Invoice Number (R-2025-XXXX)
+NEXT_INVOICE_NUMBER=1
+
+# Next Expense Number (E-2025-XXXX)
+NEXT_EXPENSE_NUMBER=1
+
+# =============================================================================
+# SYSTEM CONFIGURATION
+# =============================================================================
+
+# Data Folder Path (all outputs will be saved here)
+DATA_FOLDER_PATH=0outputs
+
+# Locale (he-IL for Hebrew, en-US for English)
+LOCALE=he-IL
+
+# Timezone
+TIMEZONE=Asia/Jerusalem
+
+# Currency Code
+CURRENCY=ILS
+
+# Forecast Mode (balanced, aggressive, conservative)
+FORECAST_MODE=aggressive
+
+# =============================================================================
+# DEVELOPMENT CONFIGURATION
+# =============================================================================
+
+# Debug Mode (true/false)
+DEBUG_MODE=false
+
+# Log Level (DEBUG, INFO, WARNING, ERROR)
+LOG_LEVEL=INFO

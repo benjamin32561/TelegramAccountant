@@ -1,0 +1,5 @@
+Familiarize yourself with the current project.
+Read and analyze all code files in the repository.
+Understand the overall project structure, dependencies, and data flow.
+Identify the main components, modules, and their interactions.
+Summarize the project’s purpose, functionality, and architecture in your own words once you’ve completed the review.
