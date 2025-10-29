@@ -44,7 +44,6 @@ DEFAULT_STATE = {
         "net_income_ytd": 0,
         "pension_total": 0,
         "study_total": 0,
-        "ni_paid_manually": get_env_value("NI_PAID_MANUALLY", 0, float),
     },
     "simulation": {
         "current_month": None,  # None = use real date, or set 1-12 for simulation

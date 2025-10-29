@@ -19,7 +19,8 @@ def calculate_ytd_totals(state: Dict[str, Any]) -> Dict[str, float]:
             "net_income_ytd": float,
             "pension_total": float,
             "study_total": float,
-            "months_left": int
+            "months_left": int,
+            "months_with_data": int
         }
     """
     months_data = state.get("months", {})
@@ -33,15 +34,27 @@ def calculate_ytd_totals(state: Dict[str, Any]) -> Dict[str, float]:
         "pension_total": 0,
         "study_total": 0,
         "months_left": 12 - current_month + 1,  # Including current month
+        "months_with_data": 0,  # Count of months with actual data
     }
     
     for month_num, month_data in months_data.items():
+        # Count months with any activity
+        if (month_data.get("income", 0) > 0 or 
+            month_data.get("expenses", 0) > 0 or 
+            month_data.get("pension", 0) > 0 or 
+            month_data.get("study", 0) > 0):
+            totals["months_with_data"] += 1
+            
         totals["income_ytd"] += month_data.get("income", 0)
         totals["expenses_ytd"] += month_data.get("expenses", 0)
         totals["pension_total"] += month_data.get("pension", 0)
         totals["study_total"] += month_data.get("study", 0)
     
     totals["net_income_ytd"] = totals["income_ytd"] - totals["expenses_ytd"]
+    
+    # If no months have data, default to 1 to avoid division by zero
+    if totals["months_with_data"] == 0:
+        totals["months_with_data"] = 1
     
     return totals
 
@@ -211,10 +224,12 @@ def calculate_full_analysis(state: Dict[str, Any]) -> Dict[str, Any]:
     # Calculate comprehensive tax analysis
     tax_settings = state["settings"]["rates"]["tax"]
     ni_settings = state["settings"]["rates"]["ni"]
-    ni_paid_manually = state.get("totals", {}).get("ni_paid_manually", 0)
     
     tax_analysis = tax_calculator.calculate_comprehensive_tax_analysis(
-        totals["net_income_ytd"], tax_settings, ni_settings, ni_paid_manually
+        totals["net_income_ytd"], 
+        tax_settings, 
+        ni_settings,
+        totals["months_with_data"]
     )
     
     return {

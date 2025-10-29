@@ -5,9 +5,9 @@ Main Telegram bot entry point.
 import os
 from dotenv import load_dotenv
 from telegram import Update
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes, ConversationHandler
 import config
-from handlers import commands, callbacks, messages
+from handlers import commands, callbacks, messages, receipt_conversation, invoice_conversation
 
 
 # Load environment variables
@@ -53,12 +53,34 @@ def main():
     application.add_handler(CommandHandler("recommend", commands.recommend_command))
     application.add_handler(CommandHandler("deposit", commands.deposit_command))
     application.add_handler(CommandHandler("summary", commands.summary_command))
-    application.add_handler(CommandHandler("setni", commands.setni_command))
     application.add_handler(CommandHandler("monthly", commands.monthly_command))
     application.add_handler(CommandHandler("projection", commands.projection_command))
     application.add_handler(CommandHandler("optimizer", commands.optimizer_command))
-    application.add_handler(CommandHandler("receipt", commands.receipt_command))
-    application.add_handler(CommandHandler("invoice", commands.invoice_command))
+    
+    # Conversational receipt handler (new improved version)
+    receipt_conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("receipt", receipt_conversation.start_receipt)],
+        states={
+            receipt_conversation.AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, receipt_conversation.receipt_amount)],
+            receipt_conversation.CLIENT: [MessageHandler(filters.TEXT & ~filters.COMMAND, receipt_conversation.receipt_client)],
+            receipt_conversation.DESCRIPTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, receipt_conversation.receipt_description)],
+            receipt_conversation.PAYMENT_METHOD: [MessageHandler(filters.TEXT & ~filters.COMMAND, receipt_conversation.receipt_payment_method)],
+        },
+        fallbacks=[CommandHandler("cancel", receipt_conversation.cancel_receipt)],
+    )
+    application.add_handler(receipt_conv_handler)
+    
+    # Conversational invoice handler (new improved version)
+    invoice_conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("invoice", invoice_conversation.start_invoice)],
+        states={
+            invoice_conversation.AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, invoice_conversation.invoice_amount)],
+            invoice_conversation.CLIENT: [MessageHandler(filters.TEXT & ~filters.COMMAND, invoice_conversation.invoice_client)],
+            invoice_conversation.DESCRIPTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, invoice_conversation.invoice_description)],
+        },
+        fallbacks=[CommandHandler("cancel", invoice_conversation.cancel_invoice)],
+    )
+    application.add_handler(invoice_conv_handler)
     application.add_handler(CommandHandler("expense", commands.expense_command))
     application.add_handler(CommandHandler("excel", commands.excel_command))
     application.add_handler(CommandHandler("last", commands.last_entries_command))

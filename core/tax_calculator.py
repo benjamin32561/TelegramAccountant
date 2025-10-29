@@ -198,7 +198,7 @@ def calculate_comprehensive_tax_analysis(
     net_income: float, 
     tax_settings: Dict[str, Any], 
     ni_settings: Dict[str, Any],
-    ni_paid_manually: float = 0
+    months_with_data: int = 12
 ) -> Dict[str, Any]:
     """
     Calculate comprehensive tax analysis for self-employed (osek patur).
@@ -207,7 +207,7 @@ def calculate_comprehensive_tax_analysis(
         net_income: Annual net income for tax calculation
         tax_settings: Tax configuration
         ni_settings: National Insurance configuration
-        ni_paid_manually: Amount of NI already paid manually (annual)
+        months_with_data: Number of months with actual financial data
     
     Returns:
         Comprehensive tax analysis with all calculations
@@ -216,7 +216,8 @@ def calculate_comprehensive_tax_analysis(
     tax_calc = calculate_income_tax(net_income, tax_settings)
     
     # Calculate NI (monthly, then convert to annual) - self-employed only
-    monthly_income = net_income / 12
+    # Use actual months with data instead of dividing by 12
+    monthly_income = net_income / months_with_data if months_with_data > 0 else 0
     ni_calc_monthly = calculate_national_insurance(monthly_income, ni_settings)
     
     # Convert monthly NI to annual
@@ -231,18 +232,12 @@ def calculate_comprehensive_tax_analysis(
     # Calculate take-home pay
     take_home_pay = net_income - total_tax_burden
     
-    # NI payment analysis
-    ni_remaining = max(0, ni_total_annual - ni_paid_manually)
-    ni_overpaid = max(0, ni_paid_manually - ni_total_annual)
-    
-    # Calculate monthly equivalents
-    monthly_income_calc = net_income / 12
-    monthly_tax = tax_calc["net_tax"] / 12
-    monthly_ni_total = ni_total_annual / 12
-    monthly_tax_burden = total_tax_burden / 12
-    monthly_take_home = take_home_pay / 12
-    monthly_ni_paid = ni_paid_manually / 12
-    monthly_ni_remaining = ni_remaining / 12
+    # Calculate monthly equivalents (using actual months with data)
+    monthly_income_calc = net_income / months_with_data if months_with_data > 0 else 0
+    monthly_tax = tax_calc["net_tax"] / months_with_data if months_with_data > 0 else 0
+    monthly_ni_total = ni_total_annual / months_with_data if months_with_data > 0 else 0
+    monthly_tax_burden = total_tax_burden / months_with_data if months_with_data > 0 else 0
+    monthly_take_home = take_home_pay / months_with_data if months_with_data > 0 else 0
     
     # Create summary comparison
     summary_comparison = {
@@ -261,15 +256,6 @@ def calculate_comprehensive_tax_analysis(
             "total_burden": monthly_tax_burden,
             "take_home": monthly_take_home,
             "effective_rate": total_effective_rate,
-        },
-        "ni_status": {
-            "yearly_paid": ni_paid_manually,
-            "yearly_due": ni_total_annual,
-            "yearly_remaining": ni_remaining,
-            "yearly_overpaid": ni_overpaid,
-            "monthly_paid": monthly_ni_paid,
-            "monthly_due": monthly_ni_total,
-            "monthly_remaining": monthly_ni_remaining,
         },
     }
     
@@ -302,11 +288,6 @@ def calculate_comprehensive_tax_analysis(
             "monthly_total": monthly_ni_total,
             "effective_rate": ni_calc_monthly["effective_rate"],
             "breakdown": ni_calc_monthly["breakdown"],
-            "paid_manually": ni_paid_manually,
-            "monthly_paid": monthly_ni_paid,
-            "remaining": ni_remaining,
-            "monthly_remaining": monthly_ni_remaining,
-            "overpaid": ni_overpaid,
         },
         "summary": {
             "total_tax_burden": total_tax_burden,

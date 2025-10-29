@@ -105,7 +105,8 @@ async def handle_expense_document(update: Update, context: ContextTypes.DEFAULT_
     message += f"Vendor: {vendor}\n"
     message += f"Amount: ₪{amount:,.2f}\n"
     if vat_amount > 0:
-        message += f"VAT (17%): ₪{vat_amount:.2f}\n"
+        vat_percentage = int(vat_rate * 100)
+        message += f"VAT ({vat_percentage}%): ₪{vat_amount:.2f}\n"
         message += f"Excl. VAT: ₪{amount_excl_vat:,.2f}\n"
     message += f"📁 Saved to: {file_path}\n\n"
     message += f"💰 Expenses updated for {current_month}/{current_year}\n"

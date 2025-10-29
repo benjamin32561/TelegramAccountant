@@ -19,7 +19,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 <b>📚 Commands Cheat Sheet</b>
 
 <b>💰 Core Workflow:</b>
-1. /receipt AMOUNT CLIENT "description" → Auto-updates income
+
+1. /receipt → Start conversational receipt creation (step-by-step, no parsing issues!)
 2. /expense AMOUNT VENDOR "description" vat → Uploads file, auto-updates expenses
 3. /recommend → Get deposit suggestions
 4. /deposit pension=X study=Y → Record deposits
@@ -30,11 +31,10 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /monthly — This month's tax/NI projection
 /projection — Year-end forecast
 /recommend — Deposit recommendations
-/setni AMOUNT — Set manual NI payment
 
 <b>📄 Document Management:</b>
-/receipt AMOUNT CLIENT "description" — Generate receipt (auto-updates income)
-/invoice AMOUNT CLIENT "description" — Generate invoice (auto-updates income)
+/receipt — <b>NEW!</b> Interactive step-by-step receipt creation (supports Hebrew/English perfectly!)
+/invoice — <b>NEW!</b> Interactive step-by-step invoice creation (supports Hebrew/English perfectly!)
 /expense AMOUNT VENDOR "desc" vat — Upload expense with photo (auto-updates expenses)
 /excel — Download complete ledger
 /last NUMBER — Show last N entries
@@ -44,14 +44,18 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /settings key=value — Update settings
 /setmonth M YEAR — Time travel for testing
 /nextmonth — Advance one month
+/cancel — Cancel current conversation
 
 <b>💡 Key Features:</b>
+• <b>NEW:</b> /receipt and /invoice use interactive conversations - no more parsing issues with Hebrew/English!
+• Step-by-step input with helpful keyboards for payment methods
 • /expense accepts photos/PDFs and extracts VAT
 • Add "vat" to expense if amount includes VAT
 • Income auto-updates when approving receipts/invoices
 • Expenses auto-update when uploading files
-• /monthly shows this month's tax estimate
+• /monthly shows this month's tax estimate (based on actual months with data)
 • /summary shows what's left to deposit
+• Use /cancel anytime to exit a conversation
 """
     
     await update.message.reply_text(help_text, parse_mode='HTML')
@@ -117,16 +121,20 @@ async def recommend_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = f"<b>💡 Deposit Recommendations</b>\n\n"
     message += f"<b>📊 Current Status:</b>\n"
     message += f"  Net Income: {formatters.format_currency(totals['net_income_ytd'])}\n"
-    message += f"  Months Left: {totals['months_left']}\n\n"
+    
+    # Calculate total suggestion
+    total_suggestion = current_suggestion['pension'] + current_suggestion['study_total']
     
     message += f"<b>💰 Recommended Monthly Deposits ({forecast_mode.capitalize()}):</b>\n"
     message += f"  Pension: {formatters.format_currency(current_suggestion['pension'])}\n"
-    message += f"  Study: {formatters.format_currency(current_suggestion['study'])}\n"
-    message += f"  Total: {formatters.format_currency(current_suggestion['total'])}\n\n"
+    message += f"  Study (Deductible): {formatters.format_currency(current_suggestion['study_deductible'])}\n"
+    message += f"  Study (Total): {formatters.format_currency(current_suggestion['study_total'])}\n"
+    message += f"  Total: {formatters.format_currency(total_suggestion)}\n\n"
     
     message += f"<b>📈 Remaining Room:</b>\n"
     message += f"  Pension: {formatters.format_currency(remaining['pension_remaining'])}\n"
-    message += f"  Study: {formatters.format_currency(remaining['study_remaining'])}\n\n"
+    message += f"  Study (Deductible): {formatters.format_currency(remaining['study_deductible_remaining'])}\n"
+    message += f"  Study (Total): {formatters.format_currency(remaining['study_total_remaining'])}\n\n"
     
     message += f"💡 <i>Use /deposit pension=X study=Y to record your deposits</i>\n"
     message += f"📊 <i>Use /summary for detailed analysis</i>"
@@ -174,26 +182,24 @@ async def summary_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     suggestions = analysis['suggestions']
     tax_analysis = analysis['tax_analysis']
     
-    # Table 1: Current State
-    state_rows = [
-        ("Gross Income", formatters.format_currency(totals['income_ytd'])),
-        ("Expenses", formatters.format_currency(totals['expenses_ytd'])),
-        ("Net Income", formatters.format_currency(totals['net_income_ytd'])),
-        ("", ""),
-        ("Pension Deposited", formatters.format_currency(totals['pension_total'])),
-        ("Pension Cap (16.5%)", formatters.format_currency(caps['pension_cap'])),
-        ("Pension Remaining", formatters.format_currency(remaining['pension_remaining'])),
-        ("", ""),
-        ("Study Deposited", formatters.format_currency(totals['study_total'])),
-        ("Study Ded. Cap (4.5%)", formatters.format_currency(caps['study_deductible_cap'])),
-        ("Study Ded. Remaining", formatters.format_currency(remaining['study_deductible_remaining'])),
-        ("Study Total Cap (₪20,520)", formatters.format_currency(caps['study_total_cap'])),
-        ("Study Total Remaining", formatters.format_currency(remaining['study_total_remaining'])),
-        ("", ""),
-        ("Months Left", str(totals['months_left'])),
-    ]
+    # Table 1: Current State - Clean bullet format
+    state_table = "<b>📈 Current State:</b>\n\n"
+    state_table += f"<b>Income & Expenses:</b>\n"
+    state_table += f"• Gross Income: {formatters.format_currency(totals['income_ytd'])}\n"
+    state_table += f"• Expenses: {formatters.format_currency(totals['expenses_ytd'])}\n"
+    state_table += f"• <b>Net Income: {formatters.format_currency(totals['net_income_ytd'])}</b>\n\n"
     
-    state_table = formatters.format_two_column_table(("Metric", "Amount"), state_rows)
+    state_table += f"<b>Pension Fund:</b>\n"
+    state_table += f"• Deposited: {formatters.format_currency(totals['pension_total'])}\n"
+    state_table += f"• Cap (16.5%): {formatters.format_currency(caps['pension_cap'])}\n"
+    state_table += f"• Remaining: {formatters.format_currency(remaining['pension_remaining'])}\n\n"
+    
+    state_table += f"<b>Study Fund:</b>\n"
+    state_table += f"• Deposited: {formatters.format_currency(totals['study_total'])}\n"
+    state_table += f"• Deductible Cap (4.5%): {formatters.format_currency(caps['study_deductible_cap'])}\n"
+    state_table += f"• Deductible Remaining: {formatters.format_currency(remaining['study_deductible_remaining'])}\n"
+    state_table += f"• Total Cap: ₪20,520\n"
+    state_table += f"• Total Remaining: {formatters.format_currency(remaining['study_total_remaining'])}\n\n"
     
     # Table 2: Tax Analysis - Monthly vs Yearly Comparison
     comparison = tax_analysis['comparison']
@@ -237,7 +243,7 @@ async def summary_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Format as simple list (fixed-width fails in Telegram)
     tax_table = "<b>💰 Tax Analysis (Self-Employed):</b>\n\n"
-    tax_table += "<b>Monthly Breakdown:</b>\n"
+    tax_table += f"<b>Monthly Breakdown</b> <i>(avg of {totals['months_with_data']} months)</i>:\n"
     tax_table += f"• Net Income: {formatters.format_currency(comparison['monthly']['income'])}\n"
     tax_table += f"• Income Tax: {formatters.format_currency(comparison['monthly']['tax'])} ({tax_analysis['summary']['tax_percentage']:.1f}%)\n"
     tax_table += f"• NI + Health: {formatters.format_currency(comparison['monthly']['ni_employee'])}\n"
@@ -249,31 +255,10 @@ async def summary_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tax_table += f"• Net Income: {formatters.format_currency(comparison['yearly']['income'])}\n"
     tax_table += f"• Income Tax: {formatters.format_currency(comparison['yearly']['tax'])} ({tax_analysis['summary']['tax_percentage']:.1f}%)\n"
     tax_table += f"• NI + Health: {formatters.format_currency(comparison['yearly']['ni_employee'])}\n"
-    tax_table += f"• NI Paid Manually: {formatters.format_currency(comparison['ni_status']['yearly_paid'])}\n"
-    tax_table += f"• NI Remaining: {formatters.format_currency(comparison['ni_status']['yearly_remaining'])}\n"
     tax_table += f"• Total Burden: {formatters.format_currency(comparison['yearly']['total_burden'])}\n"
     tax_table += f"• Take-Home: {formatters.format_currency(comparison['yearly']['take_home'])}\n"
     tax_table += f"• Effective Rate: {comparison['yearly']['effective_rate']*100:.1f}%\n"
     tax_table += f"• Marginal Rate: {tax_analysis['tax']['marginal_rate']*100:.1f}%\n\n"
-    tax_table += f"<i>Note: Self-employed (osek patur) - no employer contributions</i>\n"
-    
-    # Table 3: Recommendations
-    rec_table = "<b>📋 Deposit Recommendations:</b>\n\n"
-    
-    rec_table += "<b>Balanced:</b>\n"
-    rec_table += f"• Pension: {formatters.format_currency(suggestions['balanced']['pension'])}\n"
-    rec_table += f"• Study (Deductible): {formatters.format_currency(suggestions['balanced']['study_deductible'])}\n"
-    rec_table += f"• Study (Total): {formatters.format_currency(suggestions['balanced']['study_total'])}\n\n"
-    
-    rec_table += "<b>Aggressive (Front-load):</b>\n"
-    rec_table += f"• Pension: {formatters.format_currency(suggestions['aggressive']['pension'])}\n"
-    rec_table += f"• Study (Deductible): {formatters.format_currency(suggestions['aggressive']['study_deductible'])}\n"
-    rec_table += f"• Study (Total): {formatters.format_currency(suggestions['aggressive']['study_total'])}\n\n"
-    
-    rec_table += "<b>Conservative:</b>\n"
-    rec_table += f"• Pension: {formatters.format_currency(suggestions['conservative']['pension'])}\n"
-    rec_table += f"• Study (Deductible): {formatters.format_currency(suggestions['conservative']['study_deductible'])}\n"
-    rec_table += f"• Study (Total): {formatters.format_currency(suggestions['conservative']['study_total'])}\n"
     
     # Add "What's Left" section
     whats_left = f"""
@@ -307,39 +292,14 @@ async def summary_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Combine and send
     message = f"<b>📊 Financial Summary - {state['year']}</b>\n\n"
-    message += "<b>📈 Current State:</b>\n" + state_table + "\n\n"
+    message += state_table + "\n\n"
     message += tax_table + "\n\n"
-    message += rec_table + "\n\n"
     message += whats_left + "\n"
     message += summary_text
     
     await update.message.reply_text(message, parse_mode='HTML')
 
 
-async def setni_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Set manual National Insurance payment amount."""
-    args = context.args
-    if len(args) != 1:
-        await update.message.reply_text(
-            "❌ Usage: /setni <amount>\n"
-            "Example: /setni 5000"
-        )
-        return
-    
-    try:
-        amount = validators.parse_amount(args[0])
-    except:
-        await update.message.reply_text("❌ Invalid amount format")
-        return
-    
-    state = config.load_state()
-    state['totals']['ni_paid_manually'] = amount
-    config.save_state(state)
-    
-    await update.message.reply_text(
-        f"✅ Set manual NI payment to ₪{amount:,.2f}\n\n"
-        f"Run /summary to see updated tax analysis"
-    )
 
 
 async def monthly_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -365,15 +325,25 @@ async def monthly_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Calculate monthly NI (self-employed only - no employer contributions)
     from core import tax_calculator
-    ni_calc = tax_calculator.calculate_national_insurance(monthly_net / 12 if monthly_net > 0 else 0, ni_settings)
+    # NI is calculated on MONTHLY net income (not divided by 12!)
+    ni_calc = tax_calculator.calculate_national_insurance(monthly_net, ni_settings)
     monthly_ni_total = ni_calc['total_amount']
     
-    # Estimate monthly tax (simplified - based on monthly income only)
-    # For accurate tax, need YTD, but this gives monthly estimate
-    taxable_income = monthly_net - monthly_pension - monthly_study
-    if taxable_income > 0:
-        tax_calc = tax_calculator.calculate_income_tax(taxable_income, tax_settings)
-        monthly_tax = tax_calc['net_tax'] / 12  # Spread over year
+    # Calculate taxable income for this month (after deductions)
+    # Deductible amounts: pension + study (up to deductible cap)
+    deductible_study = min(monthly_study, monthly_net * 0.045)  # 4.5% cap
+    deductible_pension = min(monthly_pension, monthly_net * 0.165)  # 16.5% cap
+    
+    # Monthly taxable income
+    monthly_taxable = monthly_net - deductible_pension - deductible_study
+    
+    # Project to annual to calculate in correct tax bracket
+    # Then divide by 12 to get monthly portion
+    if monthly_taxable > 0:
+        # Assume this monthly rate continues for full year
+        annual_taxable_projection = monthly_taxable * 12
+        tax_calc = tax_calculator.calculate_income_tax(annual_taxable_projection, tax_settings)
+        monthly_tax = tax_calc['net_tax'] / 12
     else:
         monthly_tax = 0
     
@@ -381,20 +351,33 @@ async def monthly_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = f"📅 <b>Monthly Projection - {current_month}/{current_year}</b>\n\n"
     
     message += f"<b>💰 This Month's Income:</b>\n"
-    message += f"  Gross: {formatters.format_currency(monthly_income)}\n"
-    message += f"  Expenses: {formatters.format_currency(monthly_expenses)}\n"
-    message += f"  Net: {formatters.format_currency(monthly_net)}\n\n"
+    message += f"• Gross Income: {formatters.format_currency(monthly_income)}\n"
+    message += f"• Expenses: {formatters.format_currency(monthly_expenses)}\n"
+    message += f"• <b>Net Income: {formatters.format_currency(monthly_net)}</b>\n\n"
     
     message += f"<b>🏦 This Month's Deposits:</b>\n"
-    message += f"  Pension: {formatters.format_currency(monthly_pension)}\n"
-    message += f"  Study: {formatters.format_currency(monthly_study)}\n"
-    message += f"  Total: {formatters.format_currency(monthly_pension + monthly_study)}\n\n"
+    message += f"• Pension (Deductible): {formatters.format_currency(deductible_pension)}\n"
+    if monthly_pension > deductible_pension:
+        message += f"  <i>(Total deposited: {formatters.format_currency(monthly_pension)}, {formatters.format_currency(monthly_pension - deductible_pension)} non-deductible)</i>\n"
+    message += f"• Study (Deductible): {formatters.format_currency(deductible_study)}\n"
+    if monthly_study > deductible_study:
+        message += f"  <i>(Total deposited: {formatters.format_currency(monthly_study)}, {formatters.format_currency(monthly_study - deductible_study)} non-deductible)</i>\n"
+    message += f"• <b>Total Deductions: {formatters.format_currency(deductible_pension + deductible_study)}</b>\n\n"
     
-    message += f"<b>📊 Estimated Monthly Payments:</b>\n"
-    message += f"  Income Tax: ~{formatters.format_currency(monthly_tax)}\n"
-    message += f"  NI + Health: ~{formatters.format_currency(monthly_ni_total)}\n"
-    message += f"  <b>Total Burden:</b> ~{formatters.format_currency(monthly_tax + monthly_ni_total)}\n"
-    message += f"  <i>(Self-employed: no employer contributions)</i>\n\n"
+    message += f"<b>💵 Taxable Income:</b>\n"
+    message += f"• Net - Deductions: {formatters.format_currency(monthly_taxable)}\n"
+    message += f"  <i>(₪{monthly_net:,.0f} - ₪{deductible_pension + deductible_study:,.0f})</i>\n\n"
+    
+    message += f"<b>📊 Tax & NI Due This Month:</b>\n"
+    message += f"• Income Tax: {formatters.format_currency(monthly_tax)}\n"
+    message += f"• NI + Health: {formatters.format_currency(monthly_ni_total)}\n"
+    message += f"• <b>Total Due: {formatters.format_currency(monthly_tax + monthly_ni_total)}</b>\n"
+    
+    # Calculate take-home
+    take_home = monthly_net - monthly_tax - monthly_ni_total
+    message += f"<b>💰 Net After Tax & NI:</b>\n"
+    message += f"• Take-Home: {formatters.format_currency(take_home)}\n"
+    message += f"  <i>(Before deposits of ₪{monthly_pension + monthly_study:,.0f})</i>\n\n"
     
     # Get recommendations for this month
     analysis = calculator.calculate_full_analysis(state)
@@ -518,21 +501,51 @@ async def optimizer_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def receipt_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Generate receipt PDF."""
-    # Parse command: /receipt <amount> <client> [description] [payment_method] [payment_ref]
+    # Parse command: /receipt <amount> <client> "description" [payment_method]
     args = context.args
     if len(args) < 2:
         await update.message.reply_text(
-            "❌ Usage: /receipt <amount> <client> [description] [payment_method] [payment_ref]\n"
-            "Example: /receipt 2016 Algolight September services Bank transfer Ref1234"
+            "❌ Usage: /receipt <amount> <client> \"description\" [payment_method]\n\n"
+            "Examples:\n"
+            "• /receipt 3500 TechStartup \"Website development - January\"\n"
+            "• /receipt 2500 ClientName \"Consulting services\" \"העברה בנקאית\"\n"
+            "• /receipt 1800 ABC \"Monthly retainer\" Cash"
         )
         return
     
     try:
         amount = validators.parse_amount(args[0])
         client = args[1]
-        description = args[2] if len(args) > 2 else "Services"
-        payment_method = args[3] if len(args) > 3 else "Cash"
-        payment_ref = args[4] if len(args) > 4 else None
+        
+        # Parse description and payment method by joining args and stripping quotes
+        remaining_text = " ".join(args[2:])
+        
+        # Strip all quote marks
+        remaining_text = remaining_text.replace('"', '').replace('"', '').replace('"', '').replace("'", '')
+        
+        # Split the remaining text to check for payment method
+        parts = remaining_text.split()
+        
+        # Check if last arg is a known payment method keyword
+        payment_keywords = ['cash', 'העברה', 'בנקאית', 'check', 'צ\'ק', 'credit', 'אשראי', 'bit', 'ביט', 'paypal']
+        payment_method = None
+        description_parts = parts
+        
+        if parts:
+            # Check if last word contains payment keyword
+            last_word = parts[-1].lower()
+            if any(keyword in last_word for keyword in payment_keywords):
+                payment_method = parts[-1]
+                description_parts = parts[:-1]
+            # Check if last two words form a payment method (e.g., "העברה בנקאית")
+            elif len(parts) >= 2:
+                last_two_words = (parts[-2] + " " + parts[-1]).lower()
+                if 'העברה' in last_two_words and 'בנקאית' in last_two_words:
+                    payment_method = parts[-2] + " " + parts[-1]
+                    description_parts = parts[:-2]
+        
+        description = " ".join(description_parts) if description_parts else "Services"
+        
     except:
         await update.message.reply_text("❌ Invalid amount format")
         return
@@ -559,7 +572,7 @@ async def receipt_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         business_info=state['settings']['business'],
         vat_rate=state['settings']['rates']['vat_rate'],
         payment_method=payment_method,
-        payment_ref=payment_ref,
+        payment_ref=None,
     )
     
     if not success:
@@ -585,14 +598,16 @@ async def invoice_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(args) < 2:
         await update.message.reply_text(
             "❌ Usage: /invoice <amount> <client> [description]\n"
-            "Example: /invoice 2016 Algolight September services"
+            "Example: /invoice 2016 Algolight \"September services\""
         )
         return
     
     try:
         amount = validators.parse_amount(args[0])
         client = args[1]
-        description = " ".join(args[2:]) if len(args) > 2 else "Services"
+        # Strip quotes from description
+        description_text = " ".join(args[2:]) if len(args) > 2 else "Services"
+        description = description_text.replace('"', '').replace('"', '').replace('"', '').replace("'", '')
     except:
         await update.message.reply_text("❌ Invalid amount format")
         return
@@ -699,7 +714,9 @@ async def expense_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         include_vat = True
         desc_args = desc_args[:-1]
     
-    description = " ".join(desc_args) if desc_args else "Expense"
+    # Strip quotes from description
+    description_text = " ".join(desc_args) if desc_args else "Expense"
+    description = description_text.replace('"', '').replace('"', '').replace('"', '').replace("'", '')
     
     # Store pending expense data in user context
     context.user_data['pending_expense'] = {
