@@ -32,6 +32,10 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /projection — Year-end forecast
 /recommend — Deposit recommendations
 
+<b>💳 Payment Tracking:</b>
+/paytax AMOUNT — Record income tax payment
+/payni AMOUNT — Record NI payment
+
 <b>📄 Document Management:</b>
 /receipt — <b>NEW!</b> Interactive step-by-step receipt creation (supports Hebrew/English perfectly!)
 /invoice — <b>NEW!</b> Interactive step-by-step invoice creation (supports Hebrew/English perfectly!)
@@ -225,13 +229,6 @@ async def summary_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
          formatters.format_currency(tax_analysis['national_insurance']['health_amount'])),
         ("NI + Health Rate", f"{tax_analysis['summary']['ni_percentage']:.1f}%", f"{tax_analysis['summary']['ni_percentage']:.1f}%"),
         ("", "", ""),
-        ("NI Paid Manually", 
-         formatters.format_currency(comparison['ni_status']['monthly_paid']),
-         formatters.format_currency(comparison['ni_status']['yearly_paid'])),
-        ("NI Remaining", 
-         formatters.format_currency(comparison['ni_status']['monthly_remaining']),
-         formatters.format_currency(comparison['ni_status']['yearly_remaining'])),
-        ("", "", ""),
         ("Total Tax Burden", 
          formatters.format_currency(comparison['monthly']['total_burden']),
          formatters.format_currency(comparison['yearly']['total_burden'])),
@@ -243,19 +240,21 @@ async def summary_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Format as simple list (fixed-width fails in Telegram)
     tax_table = "<b>💰 Tax Analysis (Self-Employed):</b>\n\n"
-    tax_table += f"<b>Monthly Breakdown</b> <i>(avg of {totals['months_with_data']} months)</i>:\n"
-    tax_table += f"• Net Income: {formatters.format_currency(comparison['monthly']['income'])}\n"
-    tax_table += f"• Income Tax: {formatters.format_currency(comparison['monthly']['tax'])} ({tax_analysis['summary']['tax_percentage']:.1f}%)\n"
+    tax_table += f"<b>This Month</b> <i>(based on {totals['months_with_data']} month(s) of data)</i>:\n"
+    tax_table += f"• Taxable Income: {formatters.format_currency(comparison['monthly']['income'])}\n"
+    tax_table += f"  <i>(After pension & study deductions)</i>\n"
+    tax_table += f"• Income Tax: {formatters.format_currency(comparison['monthly']['tax'])}\n"
     tax_table += f"• NI + Health: {formatters.format_currency(comparison['monthly']['ni_employee'])}\n"
-    tax_table += f"• Total Burden: {formatters.format_currency(comparison['monthly']['total_burden'])}\n"
+    tax_table += f"• <b>Total Due: {formatters.format_currency(comparison['monthly']['total_burden'])}</b>\n"
     tax_table += f"• Take-Home: {formatters.format_currency(comparison['monthly']['take_home'])}\n"
     tax_table += f"• Effective Rate: {comparison['monthly']['effective_rate']*100:.1f}%\n\n"
     
-    tax_table += "<b>Yearly Breakdown:</b>\n"
-    tax_table += f"• Net Income: {formatters.format_currency(comparison['yearly']['income'])}\n"
+    tax_table += f"<b>Projected Annual</b> <i>(if you continue at this rate)</i>:\n"
+    tax_table += f"• Taxable Income: {formatters.format_currency(comparison['yearly']['income'])}\n"
+    tax_table += f"  <i>(After pension & study deductions)</i>\n"
     tax_table += f"• Income Tax: {formatters.format_currency(comparison['yearly']['tax'])} ({tax_analysis['summary']['tax_percentage']:.1f}%)\n"
-    tax_table += f"• NI + Health: {formatters.format_currency(comparison['yearly']['ni_employee'])}\n"
-    tax_table += f"• Total Burden: {formatters.format_currency(comparison['yearly']['total_burden'])}\n"
+    tax_table += f"• NI + Health: {formatters.format_currency(comparison['yearly']['ni_employee'])} ({tax_analysis['summary']['ni_percentage']:.1f}%)\n"
+    tax_table += f"• <b>Total: {formatters.format_currency(comparison['yearly']['total_burden'])}</b>\n"
     tax_table += f"• Take-Home: {formatters.format_currency(comparison['yearly']['take_home'])}\n"
     tax_table += f"• Effective Rate: {comparison['yearly']['effective_rate']*100:.1f}%\n"
     tax_table += f"• Marginal Rate: {tax_analysis['tax']['marginal_rate']*100:.1f}%\n\n"
@@ -285,7 +284,6 @@ async def summary_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 <b>📋 Quick Summary:</b>
 • Monthly Take-Home: {formatters.format_currency(comparison['monthly']['take_home'])}
 • Tax Burden: {tax_analysis['summary']['tax_percentage']:.1f}% income + {tax_analysis['summary']['ni_percentage']:.1f}% NI+Health = {tax_analysis['summary']['total_effective_rate']*100:.1f}% total
-• NI Status: {formatters.format_currency(comparison['ni_status']['yearly_remaining'])} remaining to pay
 • Marginal Rate: {tax_analysis['tax']['marginal_rate']*100:.1f}% (next ₪1 taxed at this rate)
 • Health Tax: {tax_analysis['summary']['health_percentage']:.1f}% of income
 """
@@ -300,6 +298,66 @@ async def summary_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(message, parse_mode='HTML')
 
 
+
+
+async def payni_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Record NI payment for current month."""
+    args = context.args
+    if len(args) != 1:
+        await update.message.reply_text(
+            "❌ Usage: /payni <amount>\n"
+            "Example: /payni 1500\n\n"
+            "Records how much NI you paid this month."
+        )
+        return
+    
+    try:
+        amount = validators.parse_amount(args[0])
+    except:
+        await update.message.reply_text("❌ Invalid amount format")
+        return
+    
+    state = config.load_state()
+    current_month = str(config.get_current_month())
+    
+    state['months'][current_month]['ni_paid'] = amount
+    config.save_state(state)
+    
+    await update.message.reply_text(
+        f"✅ Recorded NI payment: ₪{amount:,.2f}\n"
+        f"Month: {current_month}/{state['year']}\n\n"
+        f"Use /monthly to see remaining amount"
+    )
+
+
+async def paytax_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Record income tax payment for current month."""
+    args = context.args
+    if len(args) != 1:
+        await update.message.reply_text(
+            "❌ Usage: /paytax <amount>\n"
+            "Example: /paytax 3000\n\n"
+            "Records how much income tax you paid this month."
+        )
+        return
+    
+    try:
+        amount = validators.parse_amount(args[0])
+    except:
+        await update.message.reply_text("❌ Invalid amount format")
+        return
+    
+    state = config.load_state()
+    current_month = str(config.get_current_month())
+    
+    state['months'][current_month]['tax_paid'] = amount
+    config.save_state(state)
+    
+    await update.message.reply_text(
+        f"✅ Recorded tax payment: ₪{amount:,.2f}\n"
+        f"Month: {current_month}/{state['year']}\n\n"
+        f"Use /monthly to see remaining amount"
+    )
 
 
 async def monthly_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -371,7 +429,25 @@ async def monthly_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message += f"<b>📊 Tax & NI Due This Month:</b>\n"
     message += f"• Income Tax: {formatters.format_currency(monthly_tax)}\n"
     message += f"• NI + Health: {formatters.format_currency(monthly_ni_total)}\n"
-    message += f"• <b>Total Due: {formatters.format_currency(monthly_tax + monthly_ni_total)}</b>\n"
+    message += f"• <b>Total Due: {formatters.format_currency(monthly_tax + monthly_ni_total)}</b>\n\n"
+    
+    # Show payments and remaining
+    tax_paid = month_data.get('tax_paid', 0)
+    ni_paid = month_data.get('ni_paid', 0)
+    tax_remaining = max(0, monthly_tax - tax_paid)
+    ni_remaining = max(0, monthly_ni_total - ni_paid)
+    
+    if tax_paid > 0 or ni_paid > 0:
+        message += f"<b>💳 Payments Made:</b>\n"
+        if tax_paid > 0:
+            message += f"• Income Tax Paid: {formatters.format_currency(tax_paid)}\n"
+            message += f"  Remaining: {formatters.format_currency(tax_remaining)}\n"
+        if ni_paid > 0:
+            message += f"• NI Paid: {formatters.format_currency(ni_paid)}\n"
+            message += f"  Remaining: {formatters.format_currency(ni_remaining)}\n"
+        message += f"• <b>Total Remaining: {formatters.format_currency(tax_remaining + ni_remaining)}</b>\n\n"
+    else:
+        message += f"<i>💡 Use /paytax and /payni to track payments</i>\n\n"
     
     # Calculate take-home
     take_home = monthly_net - monthly_tax - monthly_ni_total
@@ -557,10 +633,10 @@ async def receipt_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "K", invoice_info['year'], invoice_info['next_receipt']
     )
     
-    # Generate PDF
-    receipts_folder = os.path.join(DATA_FOLDER_PATH, "receipts")
-    os.makedirs(receipts_folder, exist_ok=True)
-    pdf_path = os.path.join(receipts_folder, f"{receipt_id}.pdf")
+    # Use new organized folder structure
+    current_month = config.get_current_month()
+    current_year = config.get_current_year()
+    pdf_path = config.get_receipt_path(receipt_id, current_year, current_month)
     
     pdf = pdf_service.PDFService()
     success = pdf.generate_receipt(
@@ -619,10 +695,10 @@ async def invoice_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "R", invoice_info['year'], invoice_info['next_invoice']
     )
     
-    # Generate PDF
-    invoices_folder = os.path.join(DATA_FOLDER_PATH, "invoices")
-    os.makedirs(invoices_folder, exist_ok=True)
-    pdf_path = os.path.join(invoices_folder, f"{invoice_id}.pdf")
+    # Use new organized folder structure
+    current_month = config.get_current_month()
+    current_year = config.get_current_year()
+    pdf_path = config.get_invoice_path(invoice_id, current_year, current_month)
     
     pdf = pdf_service.PDFService()
     success = pdf.generate_invoice(
@@ -652,25 +728,44 @@ async def invoice_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def excel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Send current ledger Excel file."""
-    if not os.path.exists(config.LEDGER_FILE):
-        await update.message.reply_text("❌ Ledger not found")
-        return
+    """Send current month's and year's ledger Excel files."""
+    current_year = config.get_current_year()
+    current_month = config.get_current_month()
     
-    with open(config.LEDGER_FILE, 'rb') as f:
-        await update.message.reply_document(
-            document=f,
-            caption="📊 Current ledger"
-        )
+    monthly_ledger = config.get_monthly_ledger_path(current_year, current_month)
+    yearly_ledger = config.get_yearly_ledger_path(current_year)
+    
+    # Send monthly ledger
+    if os.path.exists(monthly_ledger):
+        with open(monthly_ledger, 'rb') as f:
+            await update.message.reply_document(
+                document=f,
+                caption=f"📊 Monthly Ledger - {current_month:02d}/{current_year}"
+            )
+    else:
+        await update.message.reply_text(f"⚠️ Monthly ledger not found for {current_month:02d}/{current_year}")
+    
+    # Send yearly ledger
+    if os.path.exists(yearly_ledger):
+        with open(yearly_ledger, 'rb') as f:
+            await update.message.reply_document(
+                document=f,
+                caption=f"📊 Yearly Ledger - {current_year}"
+            )
+    else:
+        await update.message.reply_text(f"⚠️ Yearly ledger not found for {current_year}")
 
 
 async def last_entries_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show last n entries from ledger."""
+    """Show last n entries from yearly ledger."""
     n = 5
     if context.args and context.args[0].isdigit():
         n = int(context.args[0])
     
-    ledger = ledger_service.LedgerService()
+    # Use yearly ledger to see all entries for the year
+    current_year = config.get_current_year()
+    yearly_ledger_path = config.get_yearly_ledger_path(current_year)
+    ledger = ledger_service.LedgerService(yearly_ledger_path)
     entries = ledger.get_last_entries(n)
     
     if not entries:

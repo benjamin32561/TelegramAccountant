@@ -106,10 +106,12 @@ async def generate_invoice_pdf(update: Update, context: ContextTypes.DEFAULT_TYP
         "R", invoice_info['year'], invoice_info['next_invoice']
     )
     
-    # Create folder
-    invoices_folder = os.path.join(DATA_FOLDER_PATH, "invoices")
-    os.makedirs(invoices_folder, exist_ok=True)
-    pdf_path = os.path.join(invoices_folder, f"{invoice_id}.pdf")
+    # Get current month and year for organizing files
+    current_month = config.get_current_month()
+    current_year = config.get_current_year()
+    
+    # Use new organized folder structure
+    pdf_path = config.get_invoice_path(invoice_id, current_year, current_month)
     
     # Generate PDF
     pdf = pdf_service.PDFService()

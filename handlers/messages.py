@@ -47,11 +47,12 @@ async def handle_expense_document(update: Update, context: ContextTypes.DEFAULT_
         "E", expense_info['year'], expense_info['next_expense']
     )
     
-    # Create organized folder structure: DATA_FOLDER_PATH/expenses/YYYY/MM/
+    # Use new organized folder structure
     current_year = config.get_current_year()
     current_month = config.get_current_month()
-    expense_folder = os.path.join(DATA_FOLDER_PATH, "expenses", str(current_year), f"{current_month:02d}")
-    os.makedirs(expense_folder, exist_ok=True)
+    
+    # Get the proper expense folder path
+    expense_folder = config.get_expenses_folder(current_year, current_month)
     
     # Save file
     file_path = os.path.join(expense_folder, f"{expense_id}.{file_ext}")
@@ -72,9 +73,9 @@ async def handle_expense_document(update: Update, context: ContextTypes.DEFAULT_
         amount_excl_vat = amount
         vat_amount = 0
     
-    # Add to ledger
+    # Add to both monthly and yearly ledgers
     ledger = ledger_service.LedgerService()
-    ledger.add_entry(
+    ledger.add_entry_to_all_ledgers(
         entry_id=expense_id,
         entry_type="Expense",
         amount=amount,
@@ -84,7 +85,9 @@ async def handle_expense_document(update: Update, context: ContextTypes.DEFAULT_
         local_path=file_path,
         drive_file_id="",
         drive_folder_id="",
-        notes=f"VAT: ₪{vat_amount:.2f}" if vat_amount > 0 else "No VAT"
+        notes=f"VAT: ₪{vat_amount:.2f}" if vat_amount > 0 else "No VAT",
+        year=current_year,
+        month=current_month,
     )
     
     # Auto-update monthly expenses (with VAT-exclusive amount)

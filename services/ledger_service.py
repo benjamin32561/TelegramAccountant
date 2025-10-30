@@ -14,6 +14,7 @@ from openpyxl.utils import get_column_letter
 import pytz
 
 from config import LEDGER_FILE
+import config
 
 LEDGER_COLUMNS = [
     "ID",
@@ -225,6 +226,86 @@ class LedgerService:
             entries.append(entry)
         
         return entries
+
+    def add_entry_to_all_ledgers(
+        self,
+        entry_id: str,
+        entry_type: str,
+        amount: float,
+        party: str,
+        description: str,
+        payment_method: str = "",
+        local_path: str = "",
+        drive_file_id: str = "",
+        drive_folder_id: str = "",
+        notes: str = "",
+        created_by: str = "bot",
+        year: int = None,
+        month: int = None,
+    ) -> bool:
+        """
+        Add entry to both monthly and yearly ledgers.
+        
+        Args:
+            Same as add_entry, plus:
+            year: Year for organizing (default: current year)
+            month: Month for organizing (default: current month)
+        
+        Returns:
+            True if successful
+        """
+        if year is None:
+            year = config.get_current_year()
+        if month is None:
+            month = config.get_current_month()
+        
+        # Get paths for both ledgers
+        monthly_ledger_path = config.get_monthly_ledger_path(year, month)
+        yearly_ledger_path = config.get_yearly_ledger_path(year)
+        
+        success = True
+        
+        # Add to monthly ledger
+        monthly_ledger = LedgerService(monthly_ledger_path)
+        if not monthly_ledger.add_entry(
+            entry_id=entry_id,
+            entry_type=entry_type,
+            amount=amount,
+            party=party,
+            description=description,
+            payment_method=payment_method,
+            local_path=local_path,
+            drive_file_id=drive_file_id,
+            drive_folder_id=drive_folder_id,
+            notes=notes,
+            created_by=created_by,
+        ):
+            print(f"⚠ Failed to add to monthly ledger: {monthly_ledger_path}")
+            success = False
+        
+        # Add to yearly ledger
+        yearly_ledger = LedgerService(yearly_ledger_path)
+        if not yearly_ledger.add_entry(
+            entry_id=entry_id,
+            entry_type=entry_type,
+            amount=amount,
+            party=party,
+            description=description,
+            payment_method=payment_method,
+            local_path=local_path,
+            drive_file_id=drive_file_id,
+            drive_folder_id=drive_folder_id,
+            notes=notes,
+            created_by=created_by,
+        ):
+            print(f"⚠ Failed to add to yearly ledger: {yearly_ledger_path}")
+            success = False
+        
+        if success:
+            print(f"✅ Added to monthly ledger: {monthly_ledger_path}")
+            print(f"✅ Added to yearly ledger: {yearly_ledger_path}")
+        
+        return success
 
 
 if __name__ == "__main__":

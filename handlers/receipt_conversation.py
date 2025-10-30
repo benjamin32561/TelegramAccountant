@@ -81,39 +81,66 @@ async def receipt_description(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     context.user_data['receipt_data']['description'] = description
     
-    # Show keyboard with common payment methods
+    # Create inline keyboard with payment method options
     payment_keyboard = [
-        ['העברה בנקאית', 'Bank Transfer'],
-        ['מזומן / Cash', 'Bit'],
-        ['צ\'ק / Check', 'כרטיס אשראי / Credit Card'],
-        ['PayPal', 'Other'],
-        ['Skip / דלג']
+        [
+            InlineKeyboardButton("🏦 Bank Transfer", callback_data="payment_bank"),
+            InlineKeyboardButton("💳 Credit Card", callback_data="payment_credit"),
+        ],
+        [
+            InlineKeyboardButton("💵 Cash", callback_data="payment_cash"),
+            InlineKeyboardButton("📝 Check", callback_data="payment_check"),
+        ],
+        [
+            InlineKeyboardButton("⏭️ Skip (no payment method)", callback_data="payment_skip"),
+        ]
     ]
     
     await update.message.reply_text(
         f"✅ Description: {description}\n\n"
-        f"💳 <b>Step 4/4:</b> Select payment method (optional)",
+        f"💳 <b>Step 4/4:</b> Select payment method (optional)\n\n"
+        f"Choose how the client paid:",
         parse_mode='HTML',
-        reply_markup=ReplyKeyboardMarkup(payment_keyboard, one_time_keyboard=True, resize_keyboard=True)
+        reply_markup=InlineKeyboardMarkup(payment_keyboard)
     )
     return PAYMENT_METHOD
 
 
 async def receipt_payment_method(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle payment method input and generate receipt."""
-    payment_method_text = update.message.text.strip()
+    """Handle payment method selection via inline keyboard."""
+    query = update.callback_query
+    await query.answer()
     
-    # Handle skip/empty
-    if payment_method_text.lower() in ['skip', 'דלג', '']:
-        payment_method = None
-    else:
-        payment_method = payment_method_text
+    # Map callback data to payment method names
+    payment_methods = {
+        'payment_bank': 'Bank Transfer',
+        'payment_credit': 'Credit Card',
+        'payment_cash': 'Cash',
+        'payment_check': 'Check',
+        'payment_skip': None,
+    }
+    
+    payment_method = payment_methods.get(query.data, None)
     
     receipt_data = context.user_data['receipt_data']
     receipt_data['payment_method'] = payment_method
     
-    # Generate receipt
-    await generate_receipt_pdf(update, context, receipt_data)
+    # Edit the message to show selection
+    if payment_method:
+        await query.edit_message_text(
+            f"✅ Payment method selected: <b>{payment_method}</b>\n\n"
+            f"🔄 Generating receipt...",
+            parse_mode='HTML'
+        )
+    else:
+        await query.edit_message_text(
+            f"⏭️ Skipped payment method\n\n"
+            f"🔄 Generating receipt...",
+            parse_mode='HTML'
+        )
+    
+    # Generate receipt (need to pass the effective message/chat)
+    await generate_receipt_pdf(query, context, receipt_data)
     
     # Clear conversation data
     context.user_data.pop('receipt_data', None)
@@ -124,10 +151,16 @@ async def receipt_payment_method(update: Update, context: ContextTypes.DEFAULT_T
 async def generate_receipt_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE, receipt_data: dict):
     """Generate the receipt PDF and send for approval."""
     
-    await update.message.reply_text(
-        "🔄 Generating receipt...",
-        reply_markup=ReplyKeyboardRemove()
-    )
+    # Handle both message and callback query updates
+    if hasattr(update, 'callback_query') and update.callback_query:
+        # Already edited the message in receipt_payment_method, no need to send another message
+        chat_id = update.effective_chat.id
+    else:
+        await update.message.reply_text(
+            "🔄 Generating receipt...",
+            reply_markup=ReplyKeyboardRemove()
+        )
+        chat_id = update.message.chat_id
     
     # Generate receipt ID
     state = config.load_state()
@@ -136,10 +169,12 @@ async def generate_receipt_pdf(update: Update, context: ContextTypes.DEFAULT_TYP
         "K", invoice_info['year'], invoice_info['next_receipt']
     )
     
-    # Create folder
-    receipts_folder = os.path.join(DATA_FOLDER_PATH, "receipts")
-    os.makedirs(receipts_folder, exist_ok=True)
-    pdf_path = os.path.join(receipts_folder, f"{receipt_id}.pdf")
+    # Get current month and year for organizing files
+    current_month = config.get_current_month()
+    current_year = config.get_current_year()
+    
+    # Use new organized folder structure
+    pdf_path = config.get_receipt_path(receipt_id, current_year, current_month)
     
     # Generate PDF
     pdf = pdf_service.PDFService()
@@ -156,7 +191,7 @@ async def generate_receipt_pdf(update: Update, context: ContextTypes.DEFAULT_TYP
     )
     
     if not success:
-        await update.message.reply_text("❌ Failed to generate receipt")
+        await context.bot.send_message(chat_id=chat_id, text="❌ Failed to generate receipt")
         return
     
     # Create summary
@@ -170,7 +205,8 @@ async def generate_receipt_pdf(update: Update, context: ContextTypes.DEFAULT_TYP
     
     # Send PDF for approval
     with open(pdf_path, 'rb') as f:
-        await update.message.reply_document(
+        await context.bot.send_document(
+            chat_id=chat_id,
             document=f,
             caption=summary,
             parse_mode='HTML',

@@ -204,7 +204,7 @@ def calculate_comprehensive_tax_analysis(
     Calculate comprehensive tax analysis for self-employed (osek patur).
     
     Args:
-        net_income: Annual net income for tax calculation
+        net_income: YTD TAXABLE income (after pension and study deductions)
         tax_settings: Tax configuration
         ni_settings: National Insurance configuration
         months_with_data: Number of months with actual financial data
@@ -212,63 +212,70 @@ def calculate_comprehensive_tax_analysis(
     Returns:
         Comprehensive tax analysis with all calculations
     """
-    # Calculate taxes (annual)
-    tax_calc = calculate_income_tax(net_income, tax_settings)
+    # Calculate monthly TAXABLE income from YTD
+    monthly_taxable_income = net_income / months_with_data if months_with_data > 0 else 0
     
-    # Calculate NI (monthly, then convert to annual) - self-employed only
-    # Use actual months with data instead of dividing by 12
-    monthly_income = net_income / months_with_data if months_with_data > 0 else 0
-    ni_calc_monthly = calculate_national_insurance(monthly_income, ni_settings)
+    # Project to annual income (for tax calculation)
+    annual_income_projection = monthly_taxable_income * 12
     
-    # Convert monthly NI to annual
-    ni_annual = ni_calc_monthly["ni_amount"] * 12
-    health_annual = ni_calc_monthly["health_amount"] * 12
-    ni_total_annual = ni_calc_monthly["total_amount"] * 12
+    # Calculate taxes on projected annual TAXABLE income
+    tax_calc = calculate_income_tax(annual_income_projection, tax_settings)
     
-    # Calculate total tax burden (self-employed: income tax + NI + health)
-    total_tax_burden = tax_calc["net_tax"] + ni_total_annual
-    total_effective_rate = total_tax_burden / net_income if net_income > 0 else 0
+    # Calculate NI on monthly TAXABLE income - self-employed only
+    ni_calc_monthly = calculate_national_insurance(monthly_taxable_income, ni_settings)
     
-    # Calculate take-home pay
-    take_home_pay = net_income - total_tax_burden
+    # Monthly amounts (what you owe THIS month)
+    monthly_ni = ni_calc_monthly["ni_amount"]
+    monthly_health = ni_calc_monthly["health_amount"]
+    monthly_ni_total = ni_calc_monthly["total_amount"]
+    monthly_tax = tax_calc["net_tax"] / 12
     
-    # Calculate monthly equivalents (using actual months with data)
-    monthly_income_calc = net_income / months_with_data if months_with_data > 0 else 0
-    monthly_tax = tax_calc["net_tax"] / months_with_data if months_with_data > 0 else 0
-    monthly_ni_total = ni_total_annual / months_with_data if months_with_data > 0 else 0
-    monthly_tax_burden = total_tax_burden / months_with_data if months_with_data > 0 else 0
-    monthly_take_home = take_home_pay / months_with_data if months_with_data > 0 else 0
+    # Projected annual amounts (if you continue at this rate for 12 months)
+    ni_annual = monthly_ni * 12
+    health_annual = monthly_health * 12
+    ni_total_annual = monthly_ni_total * 12
+    tax_annual = tax_calc["net_tax"]
+    
+    # Monthly tax burden (what you owe this month)
+    monthly_tax_burden = monthly_tax + monthly_ni_total
+    monthly_take_home = monthly_taxable_income - monthly_tax_burden
+    
+    # Projected annual tax burden
+    total_tax_burden = tax_annual + ni_total_annual
+    total_effective_rate = total_tax_burden / annual_income_projection if annual_income_projection > 0 else 0
+    take_home_pay = annual_income_projection - total_tax_burden
     
     # Create summary comparison
     summary_comparison = {
         "yearly": {
-            "income": net_income,
-            "tax": tax_calc["net_tax"],
+            "income": annual_income_projection,  # Projected annual TAXABLE income
+            "tax": tax_annual,
             "ni_employee": ni_total_annual,  # Self-employed pay this (no employer portion)
             "total_burden": total_tax_burden,
             "take_home": take_home_pay,
             "effective_rate": total_effective_rate,
         },
         "monthly": {
-            "income": monthly_income_calc,
+            "income": monthly_taxable_income,  # Monthly TAXABLE income
             "tax": monthly_tax,
             "ni_employee": monthly_ni_total,
             "total_burden": monthly_tax_burden,
             "take_home": monthly_take_home,
-            "effective_rate": total_effective_rate,
+            "effective_rate": monthly_tax_burden / monthly_taxable_income if monthly_taxable_income > 0 else 0,
         },
     }
     
     # Calculate percentages for summary
-    tax_percentage = (tax_calc["net_tax"] / net_income * 100) if net_income > 0 else 0
-    ni_percentage = (ni_total_annual / net_income * 100) if net_income > 0 else 0
-    health_percentage = (health_annual / net_income * 100) if net_income > 0 else 0
+    tax_percentage = (tax_annual / annual_income_projection * 100) if annual_income_projection > 0 else 0
+    ni_percentage = (ni_total_annual / annual_income_projection * 100) if annual_income_projection > 0 else 0
+    health_percentage = (health_annual / annual_income_projection * 100) if annual_income_projection > 0 else 0
     
     return {
         "income": {
-            "net_income": net_income,
-            "take_home_pay": take_home_pay,
-            "monthly_income": monthly_income_calc,
+            "taxable_income_ytd": net_income,  # YTD TAXABLE income
+            "annual_projection": annual_income_projection,  # Projected annual TAXABLE
+            "take_home_pay": take_home_pay,  # Projected annual take-home
+            "monthly_taxable": monthly_taxable_income,  # Monthly TAXABLE income
             "monthly_take_home": monthly_take_home,
         },
         "tax": {

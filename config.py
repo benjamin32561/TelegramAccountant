@@ -29,13 +29,21 @@ ENV_FILE = ".env"
 DATA_FOLDER_PATH = get_env_value("DATA_FOLDER_PATH", "0outputs")
 os.makedirs(DATA_FOLDER_PATH, exist_ok=True)
 STATE_FILE = os.path.join(DATA_FOLDER_PATH, "state.json")
+# Legacy ledger file path (kept for backward compatibility)
 LEDGER_FILE = os.path.join(DATA_FOLDER_PATH, "ledger.xlsx")
 
 # Default state structure with environment variable overrides
 DEFAULT_STATE = {
     "year": get_env_value("INVOICE_YEAR", datetime.now().year, int),
     "months": {
-        str(i): {"income": 0, "expenses": 0, "pension": 0, "study": 0}
+        str(i): {
+            "income": 0,
+            "expenses": 0,
+            "pension": 0,
+            "study": 0,
+            "ni_paid": 0,
+            "tax_paid": 0,
+        }
         for i in range(1, 13)
     },
     "totals": {
@@ -168,6 +176,95 @@ def get_tz():
 def get_current_year():
     """Get current year."""
     return datetime.now().year
+
+
+# ============================================================================
+# NEW: Organized folder structure helpers
+# ============================================================================
+
+def get_year_folder(year: int = None) -> str:
+    """Get the folder path for a specific year."""
+    if year is None:
+        year = get_current_year()
+    path = os.path.join(DATA_FOLDER_PATH, str(year))
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def get_month_folder(year: int = None, month: int = None) -> str:
+    """Get the folder path for a specific month."""
+    if year is None:
+        year = get_current_year()
+    if month is None:
+        month = get_current_month()
+    
+    year_path = get_year_folder(year)
+    month_str = f"{month:02d}"  # Format as 01, 02, ..., 12
+    path = os.path.join(year_path, month_str)
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def get_receipts_folder(year: int = None, month: int = None) -> str:
+    """Get the receipts folder for a specific month."""
+    month_path = get_month_folder(year, month)
+    path = os.path.join(month_path, "receipts")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def get_expenses_folder(year: int = None, month: int = None) -> str:
+    """Get the expenses folder for a specific month."""
+    month_path = get_month_folder(year, month)
+    path = os.path.join(month_path, "expenses")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def get_yearly_ledger_path(year: int = None) -> str:
+    """Get the yearly ledger file path."""
+    if year is None:
+        year = get_current_year()
+    year_path = get_year_folder(year)
+    return os.path.join(year_path, f"ledger_{year}.xlsx")
+
+
+def get_monthly_ledger_path(year: int = None, month: int = None) -> str:
+    """Get the monthly ledger file path."""
+    if year is None:
+        year = get_current_year()
+    if month is None:
+        month = get_current_month()
+    
+    month_path = get_month_folder(year, month)
+    month_str = f"{month:02d}"
+    return os.path.join(month_path, f"ledger_{year}_{month_str}.xlsx")
+
+
+def get_receipt_path(receipt_id: str, year: int = None, month: int = None) -> str:
+    """Get the full path for a receipt PDF."""
+    receipts_folder = get_receipts_folder(year, month)
+    return os.path.join(receipts_folder, f"{receipt_id}.pdf")
+
+
+def get_expense_path(expense_id: str, year: int = None, month: int = None) -> str:
+    """Get the full path for an expense PDF."""
+    expenses_folder = get_expenses_folder(year, month)
+    return os.path.join(expenses_folder, f"{expense_id}.pdf")
+
+
+def get_invoices_folder(year: int = None, month: int = None) -> str:
+    """Get the invoices folder for a specific month (receipts are income, invoices are for billing)."""
+    month_path = get_month_folder(year, month)
+    path = os.path.join(month_path, "invoices")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def get_invoice_path(invoice_id: str, year: int = None, month: int = None) -> str:
+    """Get the full path for an invoice PDF."""
+    invoices_folder = get_invoices_folder(year, month)
+    return os.path.join(invoices_folder, f"{invoice_id}.pdf")
 
 
 if __name__ == "__main__":

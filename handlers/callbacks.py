@@ -67,14 +67,21 @@ async def handle_invoice_approval(query, document_id: str, amount: float, client
     
     # Determine if this is a receipt (K-) or invoice (R-)
     is_receipt = document_id.startswith('K-')
-    folder_name = "receipts" if is_receipt else "invoices"
     counter_field = "next_receipt" if is_receipt else "next_invoice"
     
-    pdf_path = os.path.join(DATA_FOLDER_PATH, folder_name, f"{document_id}.pdf")
+    # Get current year and month
+    current_year = config.get_current_year()
+    current_month = config.get_current_month()
     
-    # Add to ledger (local only, no Drive)
+    # Get PDF path using new organized structure
+    if is_receipt:
+        pdf_path = config.get_receipt_path(document_id, current_year, current_month)
+    else:
+        pdf_path = config.get_invoice_path(document_id, current_year, current_month)
+    
+    # Add to both monthly and yearly ledgers
     ledger = ledger_service.LedgerService()
-    ledger.add_entry(
+    ledger.add_entry_to_all_ledgers(
         entry_id=document_id,
         entry_type="Income",
         amount=amount,
@@ -84,7 +91,9 @@ async def handle_invoice_approval(query, document_id: str, amount: float, client
         local_path=pdf_path,
         drive_file_id="",
         drive_folder_id="",
-        notes=f"{'Receipt' if is_receipt else 'Invoice'} generated via bot"
+        notes=f"{'Receipt' if is_receipt else 'Invoice'} generated via bot",
+        year=current_year,
+        month=current_month,
     )
     
     # Increment appropriate counter

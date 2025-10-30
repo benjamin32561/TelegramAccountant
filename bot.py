@@ -54,6 +54,8 @@ def main():
     application.add_handler(CommandHandler("deposit", commands.deposit_command))
     application.add_handler(CommandHandler("summary", commands.summary_command))
     application.add_handler(CommandHandler("monthly", commands.monthly_command))
+    application.add_handler(CommandHandler("payni", commands.payni_command))
+    application.add_handler(CommandHandler("paytax", commands.paytax_command))
     application.add_handler(CommandHandler("projection", commands.projection_command))
     application.add_handler(CommandHandler("optimizer", commands.optimizer_command))
     
@@ -64,7 +66,9 @@ def main():
             receipt_conversation.AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, receipt_conversation.receipt_amount)],
             receipt_conversation.CLIENT: [MessageHandler(filters.TEXT & ~filters.COMMAND, receipt_conversation.receipt_client)],
             receipt_conversation.DESCRIPTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, receipt_conversation.receipt_description)],
-            receipt_conversation.PAYMENT_METHOD: [MessageHandler(filters.TEXT & ~filters.COMMAND, receipt_conversation.receipt_payment_method)],
+            receipt_conversation.PAYMENT_METHOD: [
+                CallbackQueryHandler(receipt_conversation.receipt_payment_method, pattern="^payment_")
+            ],
         },
         fallbacks=[CommandHandler("cancel", receipt_conversation.cancel_receipt)],
     )

@@ -221,12 +221,17 @@ def calculate_full_analysis(state: Dict[str, Any]) -> Dict[str, Any]:
         totals["pension_total"], totals["study_total"], caps
     )
     
-    # Calculate comprehensive tax analysis
+    # Calculate TAXABLE income (net income AFTER pension and study deductions)
+    pension_deductible = deductible_analysis["pension"]["deductible"]
+    study_deductible = deductible_analysis["study"]["deductible"]
+    taxable_income_ytd = totals["net_income_ytd"] - pension_deductible - study_deductible
+    
+    # Calculate comprehensive tax analysis on TAXABLE income
     tax_settings = state["settings"]["rates"]["tax"]
     ni_settings = state["settings"]["rates"]["ni"]
     
     tax_analysis = tax_calculator.calculate_comprehensive_tax_analysis(
-        totals["net_income_ytd"], 
+        taxable_income_ytd,  # Use taxable income, not net income!
         tax_settings, 
         ni_settings,
         totals["months_with_data"]
