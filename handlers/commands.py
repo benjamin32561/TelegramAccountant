@@ -37,8 +37,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /payni AMOUNT — Record NI payment
 
 <b>📄 Document Management:</b>
-/receipt — <b>NEW!</b> Interactive step-by-step receipt creation (supports Hebrew/English perfectly!)
-/invoice — <b>NEW!</b> Interactive step-by-step invoice creation (supports Hebrew/English perfectly!)
+/receipt — Interactive step-by-step receipt creation (supports Hebrew/English perfectly!)
+/invoice — Interactive step-by-step invoice creation (supports Hebrew/English perfectly!)
 /expense AMOUNT VENDOR "desc" vat — Upload expense with photo (auto-updates expenses)
 /excel — Download complete ledger
 /last NUMBER — Show last N entries
